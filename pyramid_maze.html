@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kim Tự Tháp - Mê Cung Xác Ướp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #d4a84b;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            margin-top: 10px;
+        }
+        canvas {
+            border: 3px solid #8b6914;
+            box-shadow: 0 0 30px rgba(212, 168, 75, 0.3);
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        #instructions {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #8b6914;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            line-height: 1.6;
+            max-width: 320px;
+        }
+        #instructions h3 {
+            color: #d4a84b;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+        #instructions .key {
+            background: #2a1f0e;
+            border: 1px solid #8b6914;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+        #hud {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            text-align: right;
+        }
+        .hud-item {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #8b6914;
+            padding: 6px 12px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .hud-item.active {
+            border-color: #ffd700;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #d4a84b;
+            padding: 30px 50px;
+            text-align: center;
+            border-radius: 8px;
+            display: none;
+        }
+        #message h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        #message p {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #ccc;
+        }
+        #message button {
+            background: #8b6914;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        #message button:hover {
+            background: #d4a84b;
+        }
+        #title {
+            font-size: 20px;
+            margin-top: 8px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(212, 168, 75, 0.5);
+            letter-spacing: 3px;
+        }
+        #levelInfo {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        .mummy-alert {
+            color: #ff4444;
+        }
+        .golden {
+            color: #ffd700;
+        }
+        .key-color {
+            color: #44ff44;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">金字塔迷宫 - 金球寻踪</div>
+    <div id="levelInfo">第三层 - 第二把钥匙</div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div id="instructions">
+                <h3>操作说明</h3>
+                <span class="key">W A S D</span> 玩家一移动<br>
+                <span class="key">E</span> 传递金球给最近队友<br>
+                <span class="key">↑ ↓ ← →</span> 玩家二移动<br>
+                <span class="key">/</span> 传递金球给最近队友<br>
+                <span class="key">I J K L</span> 玩家三移动<br>
+                <span class="key">U</span> 传递金球给最近队友<br><br>
+                <span style="color:#ff6666">拿球的玩家移动较慢！</span><br>
+                <span style="color:#ff4444">避开木乃伊的视线！</span>
+            </div>
+        </div>
+        <div id="hud">
+            <div class="hud-item" id="hudP1">玩家一 <span style="color:#4488ff">●</span></div>
+            <div class="hud-item" id="hudP2">玩家二 <span style="color:#44ff44">●</span></div>
+            <div class="hud-item" id="hudP3">玩家三 <span style="color:#ff44ff">●</span></div>
+            <div class="hud-item" id="hudBall">金球: <span style="color:#888">无</span></div>
+            <div class="hud-item" id="hudKey">钥匙二: <span style="color:#888">未获取</span></div>
+        </div>
+        <div id="message">
+            <h2 id="msgTitle"></h2>
+            <p id="msgText"></p>
+            <button id="msgBtn" onclick="restartGame()">重新开始</button>
+        </div>
+    </div>
+
+    <script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const TILE = 32;
+const COLS = 35;
+const ROWS = 25;
+canvas.width = COLS * TILE;
+canvas.height = ROWS * TILE;
+
+const COLS_MAZE = COLS;
+const ROWS_MAZE = ROWS;
+
+let maze = [];
+let gameState = 'playing';
+let keyCollected = false;
+
+const MAZE_W = COLS_MAZE;
+const MAZE_H = ROWS_MAZE;
+
+function generateMaze() {
+    maze = [];
+    for (let y = 0; y < MAZE_H; y++) {
+        maze[y] = [];
+        for (let x = 0; x < MAZE_W; x++) {
+            maze[y][x] = 1;
+        }
+    }
+
+    function carve(x, y) {
+        maze[y][x] = 0;
+        const dirs = [[0,-2],[0,2],[-2,0],[2,0]];
+        shuffle(dirs);
+        for (const [dx, dy] of dirs) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx > 0 && nx < MAZE_W - 1 && ny > 0 && ny < MAZE_H - 1 && maze[ny][nx] === 1) {
+                maze[y + dy/2][x + dx/2] = 0;
+                carve(nx, ny);
+            }
+        }
+    }
+
+    carve(1, 1);
+
+    for (let y = 1; y < MAZE_H - 1; y++) {
+        for (let x = 1; x < MAZE_W - 1; x++) {
+            if (maze[y][x] === 1 && Math.random() < 0.08) {
+                const hasOpen = (maze[y-1] && maze[y-1][x] === 0) ||
+                    (maze[y+1] && maze[y+1][x] === 0) ||
+                    (maze[y][x-1] === 0) || (maze[y][x+1] === 0);
+                if (hasOpen) maze[y][x] = 0;
+            }
+        }
+    }
+
+    maze[1][1] = 0;
+    maze[1][2] = 0;
+    maze[2][1] = 0;
+
+    const endX = MAZE_W - 2;
+    const endY = MAZE_H - 2;
+    for (let y = endY - 1; y <= endY + 1; y++) {
+        for (let x = endX - 1; x <= endX + 1; x++) {
+            if (y >= 0 && y < MAZE_H && x >= 0 && x < MAZE_W) {
+                maze[y][x] = 0;
+            }
+        }
+    }
+    maze[endY][endX] = 0;
+    maze[endY][endX - 1] = 0;
+    maze[endY - 1][endX] = 0;
+    maze[endY - 1][endX - 1] = 0;
+
+    const ballX = 5;
+    const ballY = 5;
+    for (let y = ballY - 1; y <= ballY + 1; y++) {
+        for (let x = ballX - 1; x <= ballX + 1; x++) {
+            if (y >= 0 && y < MAZE_H && x >= 0 && x < MAZE_W) {
+                maze[y][x] = 0;
+            }
+        }
+    }
+    maze[ballY][ballX] = 0;
+}
+
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+}
+
+const players = [
+    { x: 1 * TILE, y: 1 * TILE, color: '#4488ff', hasBall: false, speed: 2.2, id: 1, name: 'P1' },
+    { x: 1 * TILE, y: 3 * TILE, color: '#44ff44', hasBall: false, speed: 2.2, id: 2, name: 'P2' },
+    { x: 3 * TILE, y: 1 * TILE, color: '#ff44ff', hasBall: false, speed: 2.2, id: 3, name: 'P3' }
+];
+
+const SLOW_SPEED = 1.4;
+const NORMAL_SPEED = 2.2;
+
+let ball = {
+    x: 5 * TILE,
+    y: 5 * TILE,
+    carried: false,
+    carrier: null,
+    active: false
+};
+
+let lionStatue = {
+    x: (MAZE_W - 2) * TILE,
+    y: (MAZE_H - 2) * TILE,
+    absorbed: false
+};
+
+let doorOpen = false;
+let doorX = (MAZE_W - 4) * TILE;
+let doorY = (MAZE_H - 2) * TILE;
+
+let key = {
+    x: (MAZE_W - 2) * TILE,
+    y: (MAZE_H - 3) * TILE,
+    visible: false,
+    collected: false
+};
+
+let mummies = [];
+const MUMMY_SPEED = 1.0;
+const MUMMY_CHASE_SPEED = 1.8;
+const MUMMY_SIGHT = 6;
+
+function createMummies() {
+    mummies = [];
+    const spawnPoints = [
+        { x: 10, y: 10 },
+        { x: 20, y: 5 },
+        { x: 15, y: 18 },
+        { x: 25, y: 15 },
+        { x: 8, y: 20 },
+        { x: 28, y: 8 }
+    ];
+
+    for (const sp of spawnPoints) {
+        let fx = sp.x;
+        let fy = sp.y;
+        while (maze[fy] && maze[fy][fx] === 1) {
+            fx++;
+            if (fx >= MAZE_W - 2) {
+                fx = 1;
+                fy++;
+            }
+        }
+        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        const validDirs = dirs.filter(([dx,dy]) => {
+            const nx = fx + dx;
+            const ny = fy + dy;
+            return nx >= 0 && nx < MAZE_W && ny >= 0 && ny < MAZE_H && maze[ny][nx] === 0;
+        });
+        const dir = validDirs.length > 0 ? validDirs[Math.floor(Math.random() * validDirs.length)] : [1,0];
+
+        mummies.push({
+            x: fx * TILE,
+            y: fy * TILE,
+            dirX: dir[0],
+            dirY: dir[1],
+            state: 'patrol',
+            patrolTimer: 0,
+            chaseTarget: null,
+            alertTimer: 0
+        });
+    }
+}
+
+let torchFlicker = 0;
+let frameCount = 0;
+const keys = {};
+
+document.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+function canMove(x, y) {
+    const margin = 4;
+    const checks = [
+        [x + margin, y + margin],
+        [x + TILE - margin - 1, y + margin],
+        [x + margin, y + TILE - margin - 1],
+        [x + TILE - margin - 1, y + TILE - margin - 1]
+    ];
+    for (const [cx, cy] of checks) {
+        const tx = Math.floor(cx / TILE);
+        const ty = Math.floor(cy / TILE);
+        if (tx < 0 || tx >= MAZE_W || ty < 0 || ty >= MAZE_H) return false;
+        if (maze[ty][tx] === 1) return false;
+    }
+    return true;
+}
+
+function updatePlayers() {
+    const p1 = players[0];
+    if (keys['w'] || keys['W']) {
+        const ny = p1.y - p1.speed;
+        if (canMove(p1.x, ny)) p1.y = ny;
+    }
+    if (keys['s'] || keys['S']) {
+        const ny = p1.y + p1.speed;
+        if (canMove(p1.x, ny)) p1.y = ny;
+    }
+    if (keys['a'] || keys['A']) {
+        const nx = p1.x - p1.speed;
+        if (canMove(nx, p1.y)) p1.x = nx;
+    }
+    if (keys['d'] || keys['D']) {
+        const nx = p1.x + p1.speed;
+        if (canMove(nx, p1.y)) p1.x = nx;
+    }
+
+    const p2 = players[1];
+    if (keys['ArrowUp']) {
+        const ny = p2.y - p2.speed;
+        if (canMove(p2.x, ny)) p2.y = ny;
+    }
+    if (keys['ArrowDown']) {
+        const ny = p2.y + p2.speed;
+        if (canMove(p2.x, ny)) p2.y = ny;
+    }
+    if (keys['ArrowLeft']) {
+        const nx = p2.x - p2.speed;
+        if (canMove(nx, p2.y)) p2.x = nx;
+    }
+    if (keys['ArrowRight']) {
+        const nx = p2.x + p2.speed;
+        if (canMove(nx, p2.y)) p2.x = nx;
+    }
+
+    const p3 = players[2];
+    if (keys['i'] || keys['I']) {
+        const ny = p3.y - p3.speed;
+        if (canMove(p3.x, ny)) p3.y = ny;
+    }
+    if (keys['k'] || keys['K']) {
+        const ny = p3.y + p3.speed;
+        if (canMove(p3.x, ny)) p3.y = ny;
+    }
+    if (keys['j'] || keys['J']) {
+        const nx = p3.x - p3.speed;
+        if (canMove(nx, p3.y)) p3.x = nx;
+    }
+    if (keys['l'] || keys['L']) {
+        const nx = p3.x + p3.speed;
+        if (canMove(nx, p3.y)) p3.x = nx;
+    }
+
+    if (ball.carried && ball.carrier !== null) {
+        const carrier = players.find(p => p.id === ball.carrier);
+        if (carrier) {
+            ball.x = carrier.x;
+            ball.y = carrier.y;
+            carrier.speed = SLOW_SPEED;
+        }
+    }
+
+    for (const p of players) {
+        if (p.hasBall) {
+            p.speed = SLOW_SPEED;
+        } else {
+            p.speed = NORMAL_SPEED;
+        }
+    }
+}
+
+function passBall(playerId) {
+    if (!ball.carried || ball.carrier !== playerId) return;
+    if (!ball.active) return;
+
+    const carrier = players.find(p => p.id === playerId);
+    if (!carrier) return;
+
+    let closest = null;
+    let closestDist = Infinity;
+    for (const p of players) {
+        if (p.id === playerId) continue;
+        const dist = Math.hypot(p.x - carrier.x, p.y - carrier.y);
+        if (dist < closestDist && dist < TILE * 8) {
+            closestDist = dist;
+            closest = p;
+        }
+    }
+
+    if (closest) {
+        carrier.hasBall = false;
+        carrier.speed = NORMAL_SPEED;
+        closest.hasBall = true;
+        closest.speed = SLOW_SPEED;
+        ball.carrier = closest.id;
+        ball.x = closest.x;
+        ball.y = closest.y;
+    }
+}
+
+function checkBallPickup() {
+    if (ball.carried || ball.active) return;
+
+    for (const p of players) {
+        const dist = Math.hypot(p.x - ball.x, p.y - ball.y);
+        if (dist < TILE) {
+            ball.carried = true;
+            ball.carrier = p.id;
+            ball.active = true;
+            p.hasBall = true;
+            p.speed = SLOW_SPEED;
+            return;
+        }
+    }
+}
+
+function lineOfSight(x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.hypot(dx, dy);
+    if (dist > MUMMY_SIGHT * TILE) return false;
+
+    const steps = Math.ceil(dist / (TILE / 2));
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const cx = x1 + dx * t;
+        const cy = y1 + dy * t;
+        const tx = Math.floor((cx + TILE/2) / TILE);
+        const ty = Math.floor((cy + TILE/2) / TILE);
+        if (tx < 0 || tx >= MAZE_W || ty < 0 || ty >= MAZE_H) return false;
+        if (maze[ty][tx] === 1) return false;
+    }
+    return true;
+}
+
+function updateMummies() {
+    for (const m of mummies) {
+        let targetPlayer = null;
+        let minDist = Infinity;
+
+        for (const p of players) {
+            const dist = Math.hypot(p.x - m.x, p.y - m.y);
+            if (dist < MUMMY_SIGHT * TILE && lineOfSight(m.x, m.y, p.x, p.y)) {
+                if (dist < minDist) {
+                    minDist = dist;
+                    targetPlayer = p;
+                }
+            }
+        }
+
+        if (targetPlayer) {
+            m.state = 'chase';
+            m.chaseTarget = targetPlayer;
+            m.alertTimer = 120;
+        } else if (m.alertTimer > 0) {
+            m.alertTimer--;
+            if (m.alertTimer <= 0) {
+                m.state = 'patrol';
+                m.chaseTarget = null;
+            }
+        }
+
+        let speed = MUMMY_SPEED;
+        let targetX, targetY;
+
+        if (m.state === 'chase' && m.chaseTarget) {
+            speed = MUMMY_CHASE_SPEED;
+            targetX = m.chaseTarget.x;
+            targetY = m.chaseTarget.y;
+        } else {
+            m.patrolTimer++;
+            if (m.patrolTimer > 60 + Math.random() * 60) {
+                m.patrolTimer = 0;
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                const validDirs = dirs.filter(([dx,dy]) => {
+                    const nx = Math.floor((m.x + dx * TILE) / TILE);
+                    const ny = Math.floor((m.y + dy * TILE) / TILE);
+                    return nx >= 0 && nx < MAZE_W && ny >= 0 && ny < MAZE_H && maze[ny][nx] === 0;
+                });
+                if (validDirs.length > 0) {
+                    const d = validDirs[Math.floor(Math.random() * validDirs.length)];
+                    m.dirX = d[0];
+                    m.dirY = d[1];
+                }
+            }
+            targetX = m.x + m.dirX * TILE;
+            targetY = m.y + m.dirY * TILE;
+        }
+
+        const dx = targetX - m.x;
+        const dy = targetY - m.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 1) {
+            const nx = m.x + (dx / dist) * speed;
+            const ny = m.y + (dy / dist) * speed;
+            if (canMove(nx, m.y)) m.x = nx;
+            if (canMove(m.x, ny)) m.y = ny;
+        }
+
+        for (const p of players) {
+            const pd = Math.hypot(p.x - m.x, p.y - m.y);
+            if (pd < TILE * 0.8) {
+                gameState = 'gameover';
+                showMessage('被木乃伊抓住了！', '小心避开木乃伊的视线，互相传球配合！');
+                return;
+            }
+        }
+    }
+}
+
+function checkLionStatue() {
+    if (!ball.carried || ball.carrier === null) return;
+    if (lionStatue.absorbed) return;
+
+    const carrier = players.find(p => p.id === ball.carrier);
+    if (!carrier) return;
+
+    const dist = Math.hypot(carrier.x - lionStatue.x, carrier.y - lionStatue.y);
+    if (dist < TILE * 1.5) {
+        lionStatue.absorbed = true;
+        ball.carried = false;
+        ball.active = false;
+        ball.carrier = null;
+        carrier.hasBall = false;
+        carrier.speed = NORMAL_SPEED;
+        doorOpen = true;
+        key.visible = true;
+        maze[Math.floor(doorY / TILE)][Math.floor(doorX / TILE)] = 0;
+    }
+}
+
+function checkKeyCollection() {
+    if (!key.visible || key.collected) return;
+
+    for (const p of players) {
+        const dist = Math.hypot(p.x - key.x, p.y - key.y);
+        if (dist < TILE) {
+            key.collected = true;
+            keyCollected = true;
+            gameState = 'win';
+            showMessage('获得第二把钥匙！', '通往第三层的通道已经打开！');
+        }
+    }
+}
+
+function showMessage(title, text) {
+    document.getElementById('msgTitle').textContent = title;
+    document.getElementById('msgText').textContent = text;
+    document.getElementById('message').style.display = 'block';
+}
+
+function updateHUD() {
+    const p1 = document.getElementById('hudP1');
+    const p2 = document.getElementById('hudP2');
+    const p3 = document.getElementById('hudP3');
+    const hBall = document.getElementById('hudBall');
+    const hKey = document.getElementById('hudKey');
+
+    p1.className = 'hud-item' + (players[0].hasBall ? ' active' : '');
+    p2.className = 'hud-item' + (players[1].hasBall ? ' active' : '');
+    p3.className = 'hud-item' + (players[2].hasBall ? ' active' : '');
+
+    if (ball.carrier) {
+        hBall.innerHTML = '金球: <span style="color:#ffd700">玩家' + ball.carrier + '持有</span>';
+    } else {
+        hBall.innerHTML = '金球: <span style="color:#888">未拾取</span>';
+    }
+
+    hKey.innerHTML = '钥匙二: <span class="' + (keyCollected ? 'key-color' : '') + '">' +
+        (keyCollected ? '已获取' : '未获取') + '</span>';
+}
+
+function drawMaze() {
+    for (let y = 0; y < MAZE_H; y++) {
+        for (let x = 0; x < MAZE_W; x++) {
+            if (maze[y][x] === 1) {
+                ctx.fillStyle = '#2a1f0e';
+                ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+                ctx.fillStyle = '#1a1208';
+                ctx.fillRect(x * TILE + 2, y * TILE + 2, TILE - 4, TILE - 4);
+
+                if (Math.random() < 0.01) {
+                    ctx.fillStyle = 'rgba(139, 105, 20, 0.3)';
+                    ctx.fillRect(x * TILE + 4, y * TILE + 4, TILE - 8, TILE - 8);
+                }
+            } else {
+                ctx.fillStyle = '#0d0d0d';
+                ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+            }
+        }
+    }
+}
+
+function drawLighting() {
+    for (const p of players) {
+        const gradient = ctx.createRadialGradient(
+            p.x + TILE/2, p.y + TILE/2, TILE * 0.5,
+            p.x + TILE/2, p.y + TILE/2, TILE * 3.5
+        );
+        gradient.addColorStop(0, 'rgba(255, 200, 50, 0.15)');
+        gradient.addColorStop(0.5, 'rgba(255, 150, 30, 0.08)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(p.x - TILE * 3, p.y - TILE * 3, TILE * 8, TILE * 8);
+    }
+
+    for (const m of mummies) {
+        const gradient = ctx.createRadialGradient(
+            m.x + TILE/2, m.y + TILE/2, TILE * 0.3,
+            m.x + TILE/2, m.y + TILE/2, TILE * 2
+        );
+        gradient.addColorStop(0, 'rgba(255, 50, 30, 0.1)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(m.x - TILE * 2, m.y - TILE * 2, TILE * 5, TILE * 5);
+    }
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawPlayers() {
+    for (const p of players) {
+        const pulse = Math.sin(frameCount * 0.05 + p.id) * 2;
+
+        ctx.beginPath();
+        ctx.arc(p.x + TILE/2, p.y + TILE/2, TILE/2 - 2 + pulse, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.strokeStyle = p.hasBall ? '#ffd700' : '#ffffff';
+        ctx.lineWidth = p.hasBall ? 2 : 1;
+        ctx.stroke();
+
+        if (p.hasBall) {
+            ctx.beginPath();
+            ctx.arc(p.x + TILE/2, p.y + TILE/2, TILE/2 + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText(p.name, p.x + TILE/2, p.y - 4);
+    }
+}
+
+function drawBall() {
+    if (ball.carried || !ball.active) return;
+
+    const glow = Math.sin(frameCount * 0.1) * 3 + TILE/2;
+
+    const gradient = ctx.createRadialGradient(
+        ball.x + TILE/2, ball.y + TILE/2, 2,
+        ball.x + TILE/2, ball.y + TILE/2, glow
+    );
+    gradient.addColorStop(0, '#ffd700');
+    gradient.addColorStop(0.5, '#daa520');
+    gradient.addColorStop(1, 'rgba(218, 165, 32, 0)');
+
+    ctx.beginPath();
+    ctx.arc(ball.x + TILE/2, ball.y + TILE/2, glow, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(ball.x + TILE/2, ball.y + TILE/2, TILE/3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd700';
+    ctx.fill();
+    ctx.strokeStyle = '#b8860b';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+}
+
+function drawLionStatue() {
+    const x = lionStatue.x + TILE/2;
+    const y = lionStatue.y + TILE/2;
+
+    if (lionStatue.absorbed) {
+        const glow = Math.sin(frameCount * 0.05) * 5 + 15;
+        const gradient = ctx.createRadialGradient(x, y, 5, x, y, glow + 10);
+        gradient.addColorStop(0, 'rgba(255, 215, 0, 0.4)');
+        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x - 25, y - 25, 50, 50);
+    }
+
+    ctx.fillStyle = '#8b7355';
+    ctx.beginPath();
+    ctx.arc(x, y, TILE/2 + 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#d4a84b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#d4a84b';
+    ctx.font = '20px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🦁', x, y);
+
+    ctx.font = '8px Courier New';
+    ctx.fillStyle = '#d4a84b';
+    ctx.fillText('石像', x, y + TILE/2 + 8);
+}
+
+function drawMummies() {
+    for (const m of mummies) {
+        if (m.state === 'chase') {
+            const flash = Math.sin(frameCount * 0.2) > 0;
+            if (flash) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+                ctx.fillRect(m.x - 2, m.y - 2, TILE + 4, TILE + 4);
+            }
+        }
+
+        ctx.fillStyle = m.state === 'chase' ? '#8b0000' : '#556b2f';
+        ctx.fillRect(m.x + 2, m.y + 2, TILE - 4, TILE - 4);
+
+        ctx.fillStyle = m.state === 'chase' ? '#ff0000' : '#ffff00';
+        ctx.beginPath();
+        ctx.arc(m.x + TILE/2 - 5, m.y + TILE/2 - 3, 3, 0, Math.PI * 2);
+        ctx.arc(m.x + TILE/2 + 5, m.y + TILE/2 - 3, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#d2b48c';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 3; i++) {
+            const ly = m.y + 8 + i * 7;
+            ctx.beginPath();
+            ctx.moveTo(m.x + 5, ly);
+            ctx.lineTo(m.x + TILE - 5, ly);
+            ctx.stroke();
+        }
+
+        if (m.state === 'chase') {
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '12px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', m.x + TILE/2, m.y - 5);
+        }
+
+        if (m.state === 'chase' || m.state === 'patrol') {
+            const sightX = m.dirX !== 0 ? m.dirX : (m.chaseTarget ? Math.sign(m.chaseTarget.x - m.x) : 0);
+            const sightY = m.dirY !== 0 ? m.dirY : (m.chaseTarget ? Math.sign(m.chaseTarget.y - m.y) : 0);
+
+            ctx.beginPath();
+            ctx.moveTo(m.x + TILE/2, m.y + TILE/2);
+            const endX = m.x + TILE/2 + sightX * MUMMY_SIGHT * TILE * 0.5;
+            const endY = m.y + TILE/2 + sightY * MUMMY_SIGHT * TILE * 0.5;
+            const perpX = -sightY * TILE;
+            const perpY = sightX * TILE;
+
+            ctx.moveTo(m.x + TILE/2, m.y + TILE/2);
+            ctx.lineTo(endX + perpX * 0.3, endY + perpY * 0.3);
+            ctx.lineTo(endX - perpX * 0.3, endY - perpY * 0.3);
+            ctx.closePath();
+
+            const sightColor = m.state === 'chase' ? 'rgba(255, 0, 0, 0.12)' : 'rgba(255, 255, 0, 0.06)';
+            ctx.fillStyle = sightColor;
+            ctx.fill();
+        }
+    }
+}
+
+function drawDoor() {
+    if (doorOpen) {
+        const x = doorX + TILE/2;
+        const y = doorY + TILE/2;
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
+        ctx.fillRect(doorX, doorY, TILE, TILE);
+
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(doorX, doorY, TILE, TILE);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#ffd700';
+        ctx.font = '10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('门开', x, y + 3);
+    } else {
+        ctx.fillStyle = '#4a3728';
+        ctx.fillRect(doorX, doorY, TILE, TILE);
+        ctx.strokeStyle = '#8b6914';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(doorX + 2, doorY + 2, TILE - 4, TILE - 4);
+
+        ctx.fillStyle = '#d4a84b';
+        ctx.font = '10px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔒', doorX + TILE/2, doorY + TILE/2 + 3);
+    }
+}
+
+function drawKey() {
+    if (!key.visible || key.collected) return;
+
+    const glow = Math.sin(frameCount * 0.08) * 3 + 10;
+    const gradient = ctx.createRadialGradient(
+        key.x + TILE/2, key.y + TILE/2, 3,
+        key.x + TILE/2, key.y + TILE/2, glow
+    );
+    gradient.addColorStop(0, 'rgba(0, 255, 100, 0.5)');
+    gradient.addColorStop(1, 'rgba(0, 255, 100, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(key.x + TILE/2, key.y + TILE/2, glow, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#44ff44';
+    ctx.font = '18px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🗝️', key.x + TILE/2, key.y + TILE/2);
+}
+
+function drawBallOnGround() {
+    if (ball.carried || !ball.active) return;
+
+    const glow = Math.sin(frameCount * 0.1) * 3 + TILE/2;
+    const gradient = ctx.createRadialGradient(
+        ball.x + TILE/2, ball.y + TILE/2, 2,
+        ball.x + TILE/2, ball.y + TILE/2, glow
+    );
+    gradient.addColorStop(0, '#ffd700');
+    gradient.addColorStop(0.5, '#daa520');
+    gradient.addColorStop(1, 'rgba(218, 165, 32, 0)');
+
+    ctx.beginPath();
+    ctx.arc(ball.x + TILE/2, ball.y + TILE/2, glow, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(ball.x + TILE/2, ball.y + TILE/2, TILE/3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd700';
+    ctx.fill();
+    ctx.strokeStyle = '#b8860b';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffd700';
+    ctx.font = '8px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText('金球', ball.x + TILE/2, ball.y + TILE/2 + TILE/2 + 8);
+}
+
+function drawDarkOverlay() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function gameLoop() {
+    if (gameState !== 'playing') {
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    frameCount++;
+    torchFlicker = Math.sin(frameCount * 0.1) * 0.02 + 0.02;
+
+    updatePlayers();
+    updateMummies();
+
+    if (keys['e'] || keys['E']) {
+        keys['e'] = false;
+        keys['E'] = false;
+        passBall(1);
+    }
+    if (keys['/']) {
+        keys['/'] = false;
+        passBall(2);
+    }
+    if (keys['u'] || keys['U']) {
+        keys['u'] = false;
+        keys['U'] = false;
+        passBall(3);
+    }
+
+    checkBallPickup();
+    checkLionStatue();
+    checkKeyCollection();
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawMaze();
+    drawLighting();
+    drawDoor();
+    drawLionStatue();
+    drawKey();
+    drawBallOnGround();
+    drawMummies();
+    drawPlayers();
+    drawDarkOverlay();
+
+    updateHUD();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function restartGame() {
+    document.getElementById('message').style.display = 'none';
+    gameState = 'playing';
+    keyCollected = false;
+    lionStatue.absorbed = false;
+    doorOpen = false;
+    key.visible = false;
+    key.collected = false;
+
+    players[0].x = 1 * TILE;
+    players[0].y = 1 * TILE;
+    players[0].hasBall = false;
+    players[0].speed = NORMAL_SPEED;
+
+    players[1].x = 1 * TILE;
+    players[1].y = 3 * TILE;
+    players[1].hasBall = false;
+    players[1].speed = NORMAL_SPEED;
+
+    players[2].x = 3 * TILE;
+    players[2].y = 1 * TILE;
+    players[2].hasBall = false;
+    players[2].speed = NORMAL_SPEED;
+
+    ball.x = 5 * TILE;
+    ball.y = 5 * TILE;
+    ball.carried = false;
+    ball.carrier = null;
+    ball.active = false;
+
+    generateMaze();
+    createMummies();
+}
+
+function init() {
+    generateMaze();
+    createMummies();
+    gameLoop();
+}
+
+init();
+    </script>
+</body>
+</html>
