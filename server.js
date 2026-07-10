@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const MAX_PLAYERS_PER_ROOM = 4;
 
 const rooms = new Map();
@@ -144,7 +145,8 @@ function createRoom(team) {
     team,
     state: createGameState(),
     playerConnections: new Map(),
-    tickInterval: null
+    tickInterval: null,
+    gameStarted: false
   };
   room.tickInterval = setInterval(() => {
     if (room.playerConnections.size === 0) {
@@ -194,6 +196,7 @@ function addPlayerToRoom(room, ws, username) {
     type: 'joined',
     playerId: player.id,
     team: room.team,
+    gameStarted: room.gameStarted,
     players: state.players.map(p => ({
       id: p.id, x: p.x, y: p.y, color: p.color, name: p.name, hasBall: p.hasBall
     })),
@@ -215,11 +218,6 @@ function addPlayerToRoom(room, ws, username) {
     id: player.id, name: username, color: player.color,
     x: player.x, y: player.y
   }, ws);
-
-  if (room.playerConnections.size >= 2 && !state.ball.active) {
-    state.ball.active = true;
-    broadcastToRoom(room, { type: 'ball_spawned', x: state.ball.x, y: state.ball.y });
-  }
 
   return player;
 }
@@ -257,6 +255,9 @@ function sendJSON(ws, msg) {
 function gameTick(room) {
   const state = room.state;
   if (state.gameOver) return;
+
+  if (!room.gameStarted) return;
+
   state.tickCount++;
 
   for (const m of state.mummies) {
@@ -403,10 +404,106 @@ app.get('/api/teams', (req, res) => {
       name: team,
       players: room.playerConnections.size,
       maxPlayers: MAX_PLAYERS_PER_ROOM,
+      gameStarted: room.gameStarted,
       gameOver: room.state.gameOver
     });
   }
   res.json({ teams });
+});
+
+const adminSessions = new Set();
+
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Wrong password.' });
+  }
+  const token = uuidv4();
+  adminSessions.add(token);
+  setTimeout(() => adminSessions.delete(token), 24 * 60 * 60 * 1000);
+  res.json({ success: true, token });
+});
+
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (!token || !adminSessions.has(token)) {
+    return res.status(401).json({ error: 'Admin auth required.' });
+  }
+  next();
+}
+
+app.get('/api/admin/rooms', adminAuth, (req, res) => {
+  const roomList = [];
+  for (const [team, room] of rooms) {
+    const players = [];
+    for (const [ws, conn] of room.playerConnections) {
+      players.push(conn.username);
+    }
+    roomList.push({
+      team,
+      players,
+      playerCount: room.playerConnections.size,
+      maxPlayers: MAX_PLAYERS_PER_ROOM,
+      gameStarted: room.gameStarted,
+      gameOver: room.state.gameOver,
+      winner: room.state.winner
+    });
+  }
+  res.json({ rooms: roomList });
+});
+
+app.post('/api/admin/start-all', adminAuth, (req, res) => {
+  let count = 0;
+  for (const [team, room] of rooms) {
+    if (!room.gameStarted && !room.state.gameOver && room.playerConnections.size > 0) {
+      room.gameStarted = true;
+      if (room.playerConnections.size >= 2 && !room.state.ball.active) {
+        room.state.ball.active = true;
+        broadcastToRoom(room, { type: 'ball_spawned', x: room.state.ball.x, y: room.state.ball.y });
+      }
+      broadcastToRoom(room, { type: 'game_started' });
+      count++;
+    }
+  }
+  res.json({ success: true, started: count });
+});
+
+app.post('/api/admin/start/:team', adminAuth, (req, res) => {
+  const room = rooms.get(req.params.team);
+  if (!room) return res.status(404).json({ error: 'Room not found.' });
+  if (room.gameStarted) return res.status(400).json({ error: 'Game already started.' });
+  if (room.state.gameOver) return res.status(400).json({ error: 'Game is over.' });
+  if (room.playerConnections.size === 0) return res.status(400).json({ error: 'No players in room.' });
+
+  room.gameStarted = true;
+  if (room.playerConnections.size >= 2 && !room.state.ball.active) {
+    room.state.ball.active = true;
+    broadcastToRoom(room, { type: 'ball_spawned', x: room.state.ball.x, y: room.state.ball.y });
+  }
+  broadcastToRoom(room, { type: 'game_started' });
+  res.json({ success: true });
+});
+
+app.post('/api/admin/reset/:team', adminAuth, (req, res) => {
+  const room = rooms.get(req.params.team);
+  if (!room) return res.status(404).json({ error: 'Room not found.' });
+
+  const oldConnections = new Map(room.playerConnections);
+  clearInterval(room.tickInterval);
+
+  const newRoom = createRoom(req.params.team);
+  newRoom.playerConnections = oldConnections;
+  rooms.set(req.params.team, newRoom);
+
+  for (const [ws, conn] of newRoom.playerConnections) {
+    clients.set(ws, { roomId: newRoom.id, playerId: null });
+  }
+
+  for (const [ws] of newRoom.playerConnections) {
+    sendJSON(ws, { type: 'game_reset', message: 'Game has been reset by admin. Reconnecting...' });
+  }
+
+  res.json({ success: true });
 });
 
 const server = http.createServer(app);
@@ -503,6 +600,7 @@ server.listen(PORT, HOST, () => {
   console.log('  PYRAMID MAZE — MULTIPLAYER SERVER');
   console.log('═══════════════════════════════════════');
   console.log(`  Server:   http://localhost:${PORT}`);
-  console.log(`  Network:  http://YOUR_IP:${PORT}`);
+  console.log(`  Admin:    http://localhost:${PORT}/admin.html`);
+  console.log(`  Password: ${ADMIN_PASSWORD}`);
   console.log('═══════════════════════════════════════');
 });

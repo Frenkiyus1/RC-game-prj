@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyramid Maze - Admin Panel</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #0a0a0a; font-family: 'Courier New', monospace;
+  color: #d4a84b; min-height: 100vh; padding: 20px;
+}
+h1 {
+  text-align:center; font-size:20px; letter-spacing:3px; margin-bottom:5px;
+  text-shadow: 0 0 20px rgba(212,168,75,0.3);
+}
+.subtitle { text-align:center; color:#888; font-size:11px; margin-bottom:25px; }
+
+#loginScreen {
+  max-width:400px; margin:80px auto; background:rgba(20,15,10,0.95);
+  border:2px solid #8b6914; border-radius:12px; padding:30px 40px;
+  box-shadow: 0 0 60px rgba(212,168,75,0.15);
+}
+#loginScreen h2 { text-align:center; font-size:16px; margin-bottom:20px; letter-spacing:2px; }
+.input { width:100%; padding:12px 14px; background:#1a1208; border:1px solid #2a1f0e;
+  border-radius:6px; color:#d4a84b; font-family:'Courier New',monospace; font-size:14px; outline:none; }
+.input:focus { border-color:#8b6914; }
+.input::placeholder { color:#444; }
+.btn {
+  padding:12px 24px; background:#8b6914; border:none; border-radius:6px;
+  color:#fff; font-family:'Courier New',monospace; font-size:14px; letter-spacing:2px;
+  cursor:pointer; transition:background 0.2s; margin-top:15px; width:100%;
+}
+.btn:hover { background:#d4a84b; }
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-green { background:#2d7a2d; }
+.btn-green:hover { background:#44aa44; }
+.btn-red { background:#8b2020; }
+.btn-red:hover { background:#cc3333; }
+.error { color:#ff4444; font-size:12px; text-align:center; margin-top:10px; min-height:18px; }
+
+#dashboard { display:none; }
+.topbar {
+  display:flex; justify-content:space-between; align-items:center;
+  background:rgba(20,15,10,0.95); border:1px solid #2a1f0e; border-radius:8px;
+  padding:12px 20px; margin-bottom:20px;
+}
+.topbar .info { color:#888; font-size:12px; }
+.topbar .actions { display:flex; gap:8px; }
+.topbar .btn { width:auto; margin-top:0; padding:10px 20px; font-size:12px; }
+
+.room-grid {
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:15px;
+}
+.room-card {
+  background:rgba(20,15,10,0.95); border:1px solid #2a1f0e; border-radius:8px;
+  padding:16px; transition:border-color 0.2s;
+}
+.room-card.started { border-color:#44aa44; }
+.room-card.over { border-color:#ff4444; opacity:0.7; }
+.room-card h3 {
+  font-size:14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;
+}
+.room-card .team-name { color:#d4a84b; letter-spacing:1px; }
+.room-card .status {
+  font-size:10px; padding:2px 8px; border-radius:10px; letter-spacing:1px;
+}
+.status-waiting { background:#2a1f0e; color:#888; }
+.status-playing { background:#1a3a1a; color:#44ff44; }
+.status-over { background:#3a1a1a; color:#ff4444; }
+.room-card .players { margin-bottom:12px; }
+.room-card .player {
+  font-size:12px; color:#ccc; padding:3px 0; border-bottom:1px solid #1a1208;
+}
+.room-card .player:last-child { border-bottom:none; }
+.room-card .no-players { font-size:11px; color:#555; font-style:italic; padding:5px 0; }
+.room-card .card-actions { display:flex; gap:6px; margin-top:10px; }
+.room-card .card-actions .btn { flex:1; margin-top:0; padding:8px; font-size:11px; }
+
+.stats-bar {
+  display:flex; gap:20px; justify-content:center; margin-bottom:20px;
+}
+.stat {
+  background:rgba(20,15,10,0.95); border:1px solid #2a1f0e; border-radius:8px;
+  padding:12px 24px; text-align:center; min-width:120px;
+}
+.stat .num { font-size:28px; color:#ffd700; }
+.stat .label { font-size:10px; color:#888; letter-spacing:1px; margin-top:4px; }
+
+.no-rooms {
+  text-align:center; color:#555; font-size:13px; padding:60px 20px;
+}
+.refresh-info { text-align:center; color:#555; font-size:10px; margin-top:15px; }
+</style>
+</head>
+<body>
+
+<h1>◈ PYRAMID MAZE ADMIN ◈</h1>
+<div class="subtitle">Control Panel</div>
+
+<div id="loginScreen">
+  <h2>🔐 ADMIN LOGIN</h2>
+  <input type="password" id="passwordInput" class="input" placeholder="Enter admin password">
+  <button class="btn" id="loginBtn" onclick="doLogin()">LOGIN</button>
+  <div class="error" id="loginError"></div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div class="info">Logged in as Admin</div>
+    <div class="actions">
+      <button class="btn btn-green" onclick="startAll()">▶ START ALL</button>
+      <button class="btn" onclick="loadRooms()" style="background:#555">↻ Refresh</button>
+      <button class="btn btn-red" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="num" id="totalRooms">0</div>
+      <div class="label">ROOMS</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="totalPlayers">0</div>
+      <div class="label">PLAYERS</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="playingCount">0</div>
+      <div class="label">PLAYING</div>
+    </div>
+  </div>
+
+  <div class="room-grid" id="roomGrid">
+    <div class="no-rooms">No rooms yet. Waiting for players to join...</div>
+  </div>
+  <div class="refresh-info">Auto-refresh every 3 seconds</div>
+</div>
+
+<script>
+let adminToken = localStorage.getItem('admin_token');
+if (adminToken) showDashboard();
+
+async function doLogin() {
+  const pw = document.getElementById('passwordInput').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.textContent = '';
+  if (!pw) { errEl.textContent = 'Enter password.'; return; }
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      adminToken = data.token;
+      localStorage.setItem('admin_token', adminToken);
+      showDashboard();
+    } else {
+      errEl.textContent = data.error || 'Login failed.';
+    }
+  } catch(e) {
+    errEl.textContent = 'Cannot connect to server.';
+  }
+  btn.disabled = false;
+}
+
+function doLogout() {
+  adminToken = null;
+  localStorage.removeItem('admin_token');
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'block';
+}
+
+function showDashboard() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadRooms();
+}
+
+async function loadRooms() {
+  try {
+    const res = await fetch('/api/admin/rooms', {
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    if (res.status === 401) { doLogout(); return; }
+    const data = await res.json();
+    renderRooms(data.rooms);
+  } catch(e) {}
+}
+
+function renderRooms(rooms) {
+  const grid = document.getElementById('roomGrid');
+  let totalPlayers = 0, playingCount = 0;
+
+  document.getElementById('totalRooms').textContent = rooms.length;
+
+  if (rooms.length === 0) {
+    grid.innerHTML = '<div class="no-rooms">No rooms yet. Waiting for players to join...</div>';
+    document.getElementById('totalPlayers').textContent = 0;
+    document.getElementById('playingCount').textContent = 0;
+    return;
+  }
+
+  totalPlayers = rooms.reduce((sum, r) => sum + r.playerCount, 0);
+  playingCount = rooms.filter(r => r.gameStarted && !r.gameOver).length;
+
+  document.getElementById('totalPlayers').textContent = totalPlayers;
+  document.getElementById('playingCount').textContent = playingCount;
+
+  grid.innerHTML = rooms.map(r => {
+    let statusClass = 'status-waiting';
+    let statusText = 'WAITING';
+    if (r.gameOver) { statusClass = 'status-over'; statusText = 'GAME OVER'; }
+    else if (r.gameStarted) { statusClass = 'status-playing'; statusText = 'PLAYING'; }
+
+    let cardClass = 'room-card';
+    if (r.gameStarted && !r.gameOver) cardClass += ' started';
+    if (r.gameOver) cardClass += ' over';
+
+    let actions = '';
+    if (!r.gameStarted && !r.gameOver && r.playerCount > 0) {
+      actions = `<button class="btn btn-green" onclick="startRoom('${r.team}')">▶ START</button>`;
+    } else if (r.gameOver) {
+      actions = `<button class="btn" onclick="resetRoom('${r.team}')">↻ RESET</button>`;
+    }
+
+    const players = r.players.length > 0
+      ? r.players.map(p => `<div class="player">● ${p}</div>`).join('')
+      : '<div class="no-players">No players connected</div>';
+
+    return `<div class="${cardClass}">
+      <h3>
+        <span class="team-name">${r.team}</span>
+        <span class="status ${statusClass}">${statusText} (${r.playerCount}/${r.maxPlayers})</span>
+      </h3>
+      <div class="players">${players}</div>
+      <div class="card-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+
+async function startAll() {
+  try {
+    await fetch('/api/admin/start-all', {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    loadRooms();
+  } catch(e) {}
+}
+
+async function startRoom(team) {
+  try {
+    await fetch(`/api/admin/start/${encodeURIComponent(team)}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    loadRooms();
+  } catch(e) {}
+}
+
+async function resetRoom(team) {
+  try {
+    await fetch(`/api/admin/reset/${encodeURIComponent(team)}`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    loadRooms();
+  } catch(e) {}
+}
+
+document.getElementById('passwordInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+setInterval(loadRooms, 3000);
+</script>
+</body>
+</html>

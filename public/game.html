@@ -131,7 +131,7 @@ let ws = null;
 let gameState = {
   maze: [], players: [], mummies: [], ball: null,
   lionStatue: null, doorOpen: false, doorX: 0, doorY: 0,
-  key: null, gameOver: false, myId: null
+  key: null, gameOver: false, myId: null, gameStarted: false
 };
 let keys = {};
 let connected = false;
@@ -176,9 +176,9 @@ function handleMessage(msg) {
       gameState.key = msg.key;
       gameState.mummies = msg.mummies;
       gameState.players = msg.players;
+      gameState.gameStarted = msg.gameStarted;
       updateLobby();
       document.getElementById('roomInfo').textContent = `| Team: ${msg.team}`;
-      document.getElementById('lobbyStatus').textContent = 'Waiting for more adventurers...';
       document.getElementById('colorDot').style.backgroundColor = 
         (msg.players.find(p => p.id === msg.playerId) || {}).color || '#888';
       break;
@@ -255,6 +255,21 @@ function handleMessage(msg) {
       }
       break;
 
+    case 'game_started':
+      gameState.gameStarted = true;
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('chatMsgs').style.display = 'block';
+      document.getElementById('chatInput').style.display = 'block';
+      break;
+
+    case 'game_reset':
+      gameState.gameOver = false;
+      gameState.gameStarted = false;
+      document.getElementById('message').style.display = 'none';
+      document.getElementById('lobby').style.display = 'flex';
+      document.getElementById('lobbyStatus').textContent = 'Game reset by admin. Waiting to start...';
+      break;
+
     case 'chat':
       addChatMessage(msg.from, msg.message);
       break;
@@ -294,10 +309,13 @@ function updateLobby() {
 
   document.getElementById('playerCount').textContent = count;
 
-  if (count >= 2) {
+  if (gameState.gameStarted) {
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('chatMsgs').style.display = 'block';
     document.getElementById('chatInput').style.display = 'block';
+  } else {
+    document.getElementById('lobby').style.display = 'flex';
+    document.getElementById('lobbyStatus').textContent = 'Waiting for admin to start the game...';
   }
 }
 
