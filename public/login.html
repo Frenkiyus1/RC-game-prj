@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyramid Maze - Login</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: #0a0a0a;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  color: #d4a84b;
+}
+.container {
+  background: rgba(20,15,10,0.95);
+  border: 2px solid #8b6914;
+  border-radius: 12px;
+  padding: 40px 50px;
+  width: 400px;
+  box-shadow: 0 0 60px rgba(212,168,75,0.15);
+}
+h1 {
+  text-align: center;
+  font-size: 22px;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+  text-shadow: 0 0 20px rgba(212,168,75,0.3);
+}
+.subtitle {
+  text-align: center;
+  color: #888;
+  font-size: 11px;
+  margin-bottom: 30px;
+  letter-spacing: 1px;
+}
+.tab-bar {
+  display: flex;
+  margin-bottom: 25px;
+  border-bottom: 1px solid #2a1f0e;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  color: #666;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab.active {
+  color: #d4a84b;
+  border-bottom-color: #d4a84b;
+}
+.tab:hover { color: #d4a84b; }
+.form-group {
+  margin-bottom: 18px;
+}
+label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+input {
+  width: 100%;
+  padding: 12px 14px;
+  background: #1a1208;
+  border: 1px solid #2a1f0e;
+  border-radius: 6px;
+  color: #d4a84b;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus { border-color: #8b6914; }
+input::placeholder { color: #444; }
+.btn {
+  width: 100%;
+  padding: 14px;
+  background: #8b6914;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-family: 'Courier New', monospace;
+  font-size: 15px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 5px;
+}
+.btn:hover { background: #d4a84b; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.error {
+  color: #ff4444;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 12px;
+  min-height: 18px;
+}
+.success {
+  color: #44ff44;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 12px;
+  min-height: 18px;
+}
+.info {
+  color: #888;
+  font-size: 11px;
+  text-align: center;
+  margin-top: 20px;
+  line-height: 1.6;
+}
+.loading {
+  display: none;
+  text-align: center;
+  margin-top: 15px;
+}
+.loading span {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: #d4a84b;
+  border-radius: 50%;
+  margin: 0 3px;
+  animation: pulse 1s infinite;
+}
+.loading span:nth-child(2) { animation-delay: 0.2s; }
+.loading span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse {
+  0%,100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>◈ PYRAMID MAZE ◈</h1>
+  <div class="subtitle">Curse of the Mummies — Multiplayer</div>
+
+  <div class="tab-bar">
+    <button class="tab active" id="tabLogin" onclick="switchTab('login')">LOGIN</button>
+    <button class="tab" id="tabRegister" onclick="switchTab('register')">REGISTER</button>
+  </div>
+
+  <div id="loginForm">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="loginUser" placeholder="Enter username" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password">
+    </div>
+    <button class="btn" id="loginBtn" onclick="doLogin()">ENTER THE PYRAMID</button>
+    <div class="error" id="loginError"></div>
+  </div>
+
+  <div id="registerForm" style="display:none">
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="regUser" placeholder="Choose a username" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="regPass" placeholder="Choose a password" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <input type="password" id="regConfirm" placeholder="Confirm password" autocomplete="new-password">
+    </div>
+    <button class="btn" id="regBtn" onclick="doRegister()">CREATE ACCOUNT</button>
+    <div class="error" id="regError"></div>
+    <div class="success" id="regSuccess"></div>
+  </div>
+
+  <div class="loading" id="loading">
+    <span></span><span></span><span></span>
+    <div style="margin-top:8px;font-size:11px;color:#888;">Connecting to pyramid...</div>
+  </div>
+
+  <div class="info">
+    ⚑ 500 players supported<br>
+    ◈ Each player controls their own explorer
+  </div>
+</div>
+
+<script>
+let currentTab = 'login';
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabLogin').className = 'tab' + (tab === 'login' ? ' active' : '');
+  document.getElementById('tabRegister').className = 'tab' + (tab === 'register' ? ' active' : '');
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('regError').textContent = '';
+  document.getElementById('regSuccess').textContent = '';
+}
+
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'block' : 'none';
+}
+
+async function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.textContent = '';
+  if (!user || !pass) { errEl.textContent = 'Please enter username and password.'; return; }
+  btn.disabled = true; showLoading(true);
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem('pyramid_token', data.token);
+      localStorage.setItem('pyramid_username', data.username);
+      window.location.href = '/game.html';
+    } else {
+      errEl.textContent = data.error || 'Login failed.';
+      btn.disabled = false; showLoading(false);
+    }
+  } catch(e) {
+    errEl.textContent = 'Cannot connect to server. Is it running?';
+    btn.disabled = false; showLoading(false);
+  }
+}
+
+async function doRegister() {
+  const user = document.getElementById('regUser').value.trim();
+  const pass = document.getElementById('regPass').value;
+  const confirm = document.getElementById('regConfirm').value;
+  const errEl = document.getElementById('regError');
+  const sucEl = document.getElementById('regSuccess');
+  const btn = document.getElementById('regBtn');
+  errEl.textContent = ''; sucEl.textContent = '';
+  if (!user || !pass) { errEl.textContent = 'Please fill all fields.'; return; }
+  if (pass !== confirm) { errEl.textContent = 'Passwords do not match.'; return; }
+  if (user.length < 2) { errEl.textContent = 'Username must be at least 2 characters.'; return; }
+  if (pass.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; return; }
+  btn.disabled = true; showLoading(true);
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      sucEl.textContent = 'Account created! You can now login.';
+      btn.disabled = false; showLoading(false);
+      setTimeout(() => switchTab('login'), 1500);
+    } else {
+      errEl.textContent = data.error || 'Registration failed.';
+      btn.disabled = false; showLoading(false);
+    }
+  } catch(e) {
+    errEl.textContent = 'Cannot connect to server. Is it running?';
+    btn.disabled = false; showLoading(false);
+  }
+}
+
+document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('regUser').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('regPass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('regConfirm').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+</script>
+</body>
+</html>

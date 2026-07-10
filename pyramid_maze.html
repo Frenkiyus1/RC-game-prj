@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kim Tự Tháp - Mê Cung Xác Ướp</title>
+    <title>Pyramid Maze - Curse of the Mummies</title>
     <style>
         * {
             margin: 0;
@@ -22,7 +22,7 @@
         }
         #gameContainer {
             position: relative;
-            margin-top: 10px;
+            margin-top: 2px;
         }
         canvas {
             border: 3px solid #8b6914;
@@ -114,16 +114,16 @@
             background: #d4a84b;
         }
         #title {
-            font-size: 20px;
-            margin-top: 8px;
-            margin-bottom: 5px;
+            font-size: 18px;
+            margin-top: 4px;
+            margin-bottom: 2px;
             text-shadow: 0 0 10px rgba(212, 168, 75, 0.5);
             letter-spacing: 3px;
         }
         #levelInfo {
             font-size: 11px;
             color: #888;
-            margin-bottom: 8px;
+            margin-bottom: 2px;
         }
         .mummy-alert {
             color: #ff4444;
@@ -137,34 +137,34 @@
     </style>
 </head>
 <body>
-    <div id="title">金字塔迷宫 - 金球寻踪</div>
-    <div id="levelInfo">第三层 - 第二把钥匙</div>
+    <div id="title">PYRAMID MAZE - GOLDEN BALL QUEST</div>
+    <div id="levelInfo">Floor 3 - The Second Key</div>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div id="instructions">
-                <h3>操作说明</h3>
-                <span class="key">W A S D</span> 玩家一移动<br>
-                <span class="key">E</span> 传递金球给最近队友<br>
-                <span class="key">↑ ↓ ← →</span> 玩家二移动<br>
-                <span class="key">/</span> 传递金球给最近队友<br>
-                <span class="key">I J K L</span> 玩家三移动<br>
-                <span class="key">U</span> 传递金球给最近队友<br><br>
-                <span style="color:#ff6666">拿球的玩家移动较慢！</span><br>
-                <span style="color:#ff4444">避开木乃伊的视线！</span>
+                <h3>CONTROLS</h3>
+                <span class="key">W A S D</span> Player 1 move<br>
+                <span class="key">E</span> Pass ball to nearest teammate<br>
+                <span class="key">↑ ↓ ← →</span> Player 2 move<br>
+                <span class="key">/</span> Pass ball to nearest teammate<br>
+                <span class="key">I J K L</span> Player 3 move<br>
+                <span class="key">U</span> Pass ball to nearest teammate<br><br>
+                <span style="color:#ff6666">Ball carrier moves slower!</span><br>
+                <span style="color:#ff4444">Avoid mummy line of sight!</span>
             </div>
         </div>
         <div id="hud">
-            <div class="hud-item" id="hudP1">玩家一 <span style="color:#4488ff">●</span></div>
-            <div class="hud-item" id="hudP2">玩家二 <span style="color:#44ff44">●</span></div>
-            <div class="hud-item" id="hudP3">玩家三 <span style="color:#ff44ff">●</span></div>
-            <div class="hud-item" id="hudBall">金球: <span style="color:#888">无</span></div>
-            <div class="hud-item" id="hudKey">钥匙二: <span style="color:#888">未获取</span></div>
+            <div class="hud-item" id="hudP1">Player 1 <span style="color:#4488ff">●</span></div>
+            <div class="hud-item" id="hudP2">Player 2 <span style="color:#44ff44">●</span></div>
+            <div class="hud-item" id="hudP3">Player 3 <span style="color:#ff44ff">●</span></div>
+            <div class="hud-item" id="hudBall">Ball: <span style="color:#888">None</span></div>
+            <div class="hud-item" id="hudKey">Key 2: <span style="color:#888">Not found</span></div>
         </div>
         <div id="message">
             <h2 id="msgTitle"></h2>
             <p id="msgText"></p>
-            <button id="msgBtn" onclick="restartGame()">重新开始</button>
+            <button id="msgBtn" onclick="restartGame()">RESTART</button>
         </div>
     </div>
 
@@ -572,7 +572,7 @@ function updateMummies() {
             const pd = Math.hypot(p.x - m.x, p.y - m.y);
             if (pd < TILE * 0.8) {
                 gameState = 'gameover';
-                showMessage('被木乃伊抓住了！', '小心避开木乃伊的视线，互相传球配合！');
+                showMessage('Caught by a mummy!', 'Avoid the mummy line of sight and pass the ball to cooperate!');
                 return;
             }
         }
@@ -609,7 +609,7 @@ function checkKeyCollection() {
             key.collected = true;
             keyCollected = true;
             gameState = 'win';
-            showMessage('获得第二把钥匙！', '通往第三层的通道已经打开！');
+            showMessage('Second Key Obtained!', 'The path to the third floor is now open!');
         }
     }
 }
@@ -632,13 +632,13 @@ function updateHUD() {
     p3.className = 'hud-item' + (players[2].hasBall ? ' active' : '');
 
     if (ball.carrier) {
-        hBall.innerHTML = '金球: <span style="color:#ffd700">玩家' + ball.carrier + '持有</span>';
+        hBall.innerHTML = 'Ball: <span style="color:#ffd700">Player ' + ball.carrier + ' has it</span>';
     } else {
-        hBall.innerHTML = '金球: <span style="color:#888">未拾取</span>';
+        hBall.innerHTML = 'Ball: <span style="color:#888">Not picked up</span>';
     }
 
-    hKey.innerHTML = '钥匙二: <span class="' + (keyCollected ? 'key-color' : '') + '">' +
-        (keyCollected ? '已获取' : '未获取') + '</span>';
+    hKey.innerHTML = 'Key 2: <span class="' + (keyCollected ? 'key-color' : '') + '">' +
+        (keyCollected ? 'Obtained' : 'Not found') + '</span>';
 }
 
 function drawMaze() {
@@ -773,7 +773,7 @@ function drawLionStatue() {
 
     ctx.font = '8px Courier New';
     ctx.fillStyle = '#d4a84b';
-    ctx.fillText('石像', x, y + TILE/2 + 8);
+    ctx.fillText('Statue', x, y + TILE/2 + 8);
 }
 
 function drawMummies() {
@@ -851,7 +851,7 @@ function drawDoor() {
         ctx.fillStyle = '#ffd700';
         ctx.font = '10px Courier New';
         ctx.textAlign = 'center';
-        ctx.fillText('门开', x, y + 3);
+        ctx.fillText('Open', x, y + 3);
     } else {
         ctx.fillStyle = '#4a3728';
         ctx.fillRect(doorX, doorY, TILE, TILE);
@@ -917,7 +917,7 @@ function drawBallOnGround() {
     ctx.fillStyle = '#ffd700';
     ctx.font = '8px Courier New';
     ctx.textAlign = 'center';
-    ctx.fillText('金球', ball.x + TILE/2, ball.y + TILE/2 + TILE/2 + 8);
+    ctx.fillText('Ball', ball.x + TILE/2, ball.y + TILE/2 + TILE/2 + 8);
 }
 
 function drawDarkOverlay() {
