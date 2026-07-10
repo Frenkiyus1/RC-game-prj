@@ -1,27 +1,13 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
-const fs = require('fs');
 const { WebSocketServer } = require('ws');
-const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
-const USERS_FILE = path.join(__dirname, 'users.json');
 const MAX_PLAYERS_PER_ROOM = 4;
-const MAX_ROOMS = 50;
 
-let users = {};
-if (fs.existsSync(USERS_FILE)) {
-  try { users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8')); } catch(e) { users = {}; }
-}
-
-function saveUsers() {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
-}
-
-const sessions = new Map();
 const rooms = new Map();
 const clients = new Map();
 
@@ -110,10 +96,6 @@ function lineOfSight(maze, x1, y1, x2, y2) {
 
 function createGameState() {
   const maze = generateMaze();
-  const spawns = [
-    { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 3, y: 1 },
-    { x: 3, y: 3 }
-  ];
 
   const mummySpawns = [
     { x: 10, y: 10 }, { x: 20, y: 5 }, { x: 15, y: 18 },
@@ -156,9 +138,10 @@ function createGameState() {
   };
 }
 
-function createRoom(id) {
+function createRoom(team) {
   const room = {
-    id,
+    id: `team_${team}`,
+    team,
     state: createGameState(),
     playerConnections: new Map(),
     tickInterval: null
@@ -166,7 +149,7 @@ function createRoom(id) {
   room.tickInterval = setInterval(() => {
     if (room.playerConnections.size === 0) {
       clearInterval(room.tickInterval);
-      rooms.delete(id);
+      rooms.delete(team);
       return;
     }
     gameTick(room);
@@ -174,20 +157,17 @@ function createRoom(id) {
   return room;
 }
 
-function getOrCreateRoom() {
-  for (const [id, room] of rooms) {
-    if (room.playerConnections.size < MAX_PLAYERS_PER_ROOM) return room;
-  }
-  if (rooms.size >= MAX_ROOMS) return null;
-  const id = `room_${uuidv4().slice(0,8)}`;
-  const room = createRoom(id);
-  rooms.set(id, room);
+function getOrCreateTeamRoom(team) {
+  let room = rooms.get(team);
+  if (room) return room;
+  if (rooms.size >= 50) return null;
+  room = createRoom(team);
+  rooms.set(team, room);
   return room;
 }
 
-function addPlayerToRoom(room, ws, username, color, token) {
+function addPlayerToRoom(room, ws, username) {
   const state = room.state;
-  const idx = state.spawnIndex % 4;
   const spawn = [
     { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 3, y: 1 },
     { x: 3, y: 3 }
@@ -198,22 +178,22 @@ function addPlayerToRoom(room, ws, username, color, token) {
     id: uuidv4().slice(0,8),
     x: spawn.x * TILE,
     y: spawn.y * TILE,
-    color: color || COLORS[state.players.length % COLORS.length],
+    color: COLORS[state.players.length % COLORS.length],
     speed: NORMAL_SPEED,
     name: username,
     hasBall: false,
-    inputDir: null,
-    token
+    inputDir: null
   };
 
   state.players.push(player);
-  const conn = { ws, playerId: player.id, username, token };
+  const conn = { ws, playerId: player.id, username };
   room.playerConnections.set(ws, conn);
-  clients.set(ws, { roomId: room.id, playerId: player.id, token });
+  clients.set(ws, { roomId: room.id, playerId: player.id });
 
   const joinMsg = {
     type: 'joined',
     playerId: player.id,
+    team: room.team,
     players: state.players.map(p => ({
       id: p.id, x: p.x, y: p.y, color: p.color, name: p.name, hasBall: p.hasBall
     })),
@@ -410,53 +390,23 @@ function gameTick(room) {
 
 const app = express();
 app.use(express.json());
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
 
-app.post('/api/register', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
-  if (username.length < 2) return res.status(400).json({ error: 'Username must be at least 2 characters.' });
-  if (password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
-  if (users[username]) return res.status(409).json({ error: 'Username already taken.' });
-  const hash = bcrypt.hashSync(password, 10);
-  users[username] = { password: hash, created: Date.now() };
-  saveUsers();
-  res.json({ success: true, message: 'Account created!' });
-});
-
-app.post('/api/login', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required.' });
-  const user = users[username];
-  if (!user) return res.status(401).json({ error: 'Invalid username or password.' });
-  if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid username or password.' });
-  const token = uuidv4();
-  sessions.set(token, { username, createdAt: Date.now() });
-  setTimeout(() => sessions.delete(token), 24 * 60 * 60 * 1000);
-  res.json({ success: true, token, username });
-});
-
-app.get('/api/verify', (req, res) => {
-  const token = req.headers.authorization;
-  if (!token || !sessions.has(token)) return res.status(401).json({ error: 'Invalid token.' });
-  res.json({ valid: true, username: sessions.get(token).username });
-});
-
-app.get('/api/stats', (req, res) => {
-  res.json({
-    totalPlayers: clients.size,
-    totalRooms: rooms.size,
-    maxCapacity: MAX_ROOMS * MAX_PLAYERS_PER_ROOM,
-    rooms: Array.from(rooms.values()).map(r => ({
-      id: r.id, players: r.playerConnections.size, maxPlayers: MAX_PLAYERS_PER_ROOM,
-      gameActive: !r.state.gameOver, keyFound: r.state.key.collected
-    }))
-  });
+app.get('/api/teams', (req, res) => {
+  const teams = [];
+  for (const [team, room] of rooms) {
+    teams.push({
+      name: team,
+      players: room.playerConnections.size,
+      maxPlayers: MAX_PLAYERS_PER_ROOM,
+      gameOver: room.state.gameOver
+    });
+  }
+  res.json({ teams });
 });
 
 const server = http.createServer(app);
@@ -464,23 +414,29 @@ const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws, req) => {
   const urlParams = new URLSearchParams(req.url.slice(1) || '');
-  const token = urlParams.get('token');
-  if (!token || !sessions.has(token)) {
-    sendJSON(ws, { type: 'error', message: 'Authentication required.' });
+  const name = urlParams.get('name');
+  const team = urlParams.get('team');
+
+  if (!name || !team) {
+    sendJSON(ws, { type: 'error', message: 'Name and team are required.' });
     ws.close();
     return;
   }
-  const session = sessions.get(token);
-  const username = session.username;
 
-  const room = getOrCreateRoom();
+  const room = getOrCreateTeamRoom(team);
   if (!room) {
-    sendJSON(ws, { type: 'error', message: 'All rooms are full. Try again later.' });
+    sendJSON(ws, { type: 'error', message: 'Too many teams. Try again later.' });
     ws.close();
     return;
   }
 
-  addPlayerToRoom(room, ws, username, null, token);
+  if (room.playerConnections.size >= MAX_PLAYERS_PER_ROOM) {
+    sendJSON(ws, { type: 'error', message: `Team "${team}" is full (${MAX_PLAYERS_PER_ROOM} players max).` });
+    ws.close();
+    return;
+  }
+
+  addPlayerToRoom(room, ws, name);
 
   ws.on('message', (data) => {
     try {
@@ -490,12 +446,12 @@ wss.on('connection', (ws, req) => {
   });
 
   ws.on('close', () => {
-    const r = rooms.get(room.id);
+    const r = rooms.get(room.team);
     if (r) removePlayerFromRoom(r, ws);
   });
 
   ws.on('error', () => {
-    const r = rooms.get(room.id);
+    const r = rooms.get(room.team);
     if (r) removePlayerFromRoom(r, ws);
   });
 });
@@ -543,13 +499,10 @@ function handleMessage(room, ws, msg) {
 }
 
 server.listen(PORT, HOST, () => {
-  const addr = `http://localhost:${PORT}`;
   console.log('═══════════════════════════════════════');
   console.log('  PYRAMID MAZE — MULTIPLAYER SERVER');
   console.log('═══════════════════════════════════════');
-  console.log(`  Server:   ${addr}`);
+  console.log(`  Server:   http://localhost:${PORT}`);
   console.log(`  Network:  http://YOUR_IP:${PORT}`);
-  console.log(`  Players:  0 / ${MAX_ROOMS * MAX_PLAYERS_PER_ROOM}`);
-  console.log(`  Rooms:    0 / ${MAX_ROOMS}`);
   console.log('═══════════════════════════════════════');
 });

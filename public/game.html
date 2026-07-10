@@ -101,7 +101,7 @@ canvas { border:3px solid #8b6914; box-shadow:0 0 30px rgba(212,168,75,0.3); dis
     <h2 id="msgTitle"></h2>
     <p id="msgText"></p>
     <button id="msgBtn" onclick="location.reload()">PLAY AGAIN</button>
-    <button onclick="window.location.href='/login.html'">LOGOUT</button>
+    <button onclick="window.location.href='/login.html'">LEAVE TEAM</button>
   </div>
   <div id="chatBox">
     <div id="chatMsgs"></div>
@@ -121,11 +121,11 @@ const TILE = 32, COLS = 35, ROWS = 25;
 canvas.width = COLS * TILE;
 canvas.height = ROWS * TILE;
 
-const token = localStorage.getItem('pyramid_token');
-const username = localStorage.getItem('pyramid_username');
-if (!token) { window.location.href = '/login.html'; }
+const playerName = localStorage.getItem('pyramid_name');
+const teamName = localStorage.getItem('pyramid_team');
+if (!playerName || !teamName) { window.location.href = '/login.html'; }
 
-document.getElementById('myName').textContent = username || 'Player';
+document.getElementById('myName').textContent = playerName || 'Player';
 
 let ws = null;
 let gameState = {
@@ -139,7 +139,7 @@ let frameCount = 0;
 
 function connect() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/?token=${token}`;
+  const wsUrl = `${protocol}//${window.location.host}/?name=${encodeURIComponent(playerName)}&team=${encodeURIComponent(teamName)}`;
   ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
@@ -177,7 +177,7 @@ function handleMessage(msg) {
       gameState.mummies = msg.mummies;
       gameState.players = msg.players;
       updateLobby();
-      document.getElementById('roomInfo').textContent = `| Room Active`;
+      document.getElementById('roomInfo').textContent = `| Team: ${msg.team}`;
       document.getElementById('lobbyStatus').textContent = 'Waiting for more adventurers...';
       document.getElementById('colorDot').style.backgroundColor = 
         (msg.players.find(p => p.id === msg.playerId) || {}).color || '#888';

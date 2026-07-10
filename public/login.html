@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pyramid Maze - Login</title>
+<title>Pyramid Maze - Join Game</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -37,29 +37,6 @@ h1 {
   margin-bottom: 30px;
   letter-spacing: 1px;
 }
-.tab-bar {
-  display: flex;
-  margin-bottom: 25px;
-  border-bottom: 1px solid #2a1f0e;
-}
-.tab {
-  flex: 1;
-  padding: 10px;
-  text-align: center;
-  cursor: pointer;
-  color: #666;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-.tab.active {
-  color: #d4a84b;
-  border-bottom-color: #d4a84b;
-}
-.tab:hover { color: #d4a84b; }
 .form-group {
   margin-bottom: 18px;
 }
@@ -108,13 +85,6 @@ input::placeholder { color: #444; }
   margin-top: 12px;
   min-height: 18px;
 }
-.success {
-  color: #44ff44;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 12px;
-  min-height: 18px;
-}
 .info {
   color: #888;
   font-size: 11px;
@@ -122,25 +92,37 @@ input::placeholder { color: #444; }
   margin-top: 20px;
   line-height: 1.6;
 }
-.loading {
-  display: none;
-  text-align: center;
-  margin-top: 15px;
+.teams-section {
+  margin-top: 20px;
+  border-top: 1px solid #2a1f0e;
+  padding-top: 15px;
 }
-.loading span {
-  display: inline-block;
-  width: 8px; height: 8px;
-  background: #d4a84b;
-  border-radius: 50%;
-  margin: 0 3px;
-  animation: pulse 1s infinite;
+.teams-section h3 {
+  font-size: 12px;
+  color: #888;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
 }
-.loading span:nth-child(2) { animation-delay: 0.2s; }
-.loading span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes pulse {
-  0%,100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
+.team-list {
+  max-height: 150px;
+  overflow-y: auto;
 }
+.team-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #ccc;
+  border-bottom: 1px solid #1a1208;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.team-item:hover { background: rgba(139,105,20,0.15); }
+.team-item .players { color: #888; font-size: 11px; }
+.team-item .gameover { color: #ff4444; font-size: 10px; }
+.no-teams { color: #555; font-size: 11px; text-align: center; padding: 10px; }
 </style>
 </head>
 <body>
@@ -148,139 +130,79 @@ input::placeholder { color: #444; }
   <h1>◈ PYRAMID MAZE ◈</h1>
   <div class="subtitle">Curse of the Mummies — Multiplayer</div>
 
-  <div class="tab-bar">
-    <button class="tab active" id="tabLogin" onclick="switchTab('login')">LOGIN</button>
-    <button class="tab" id="tabRegister" onclick="switchTab('register')">REGISTER</button>
+  <div class="form-group">
+    <label>Your Name</label>
+    <input type="text" id="nameInput" placeholder="Enter your name" maxlength="20" autocomplete="off">
   </div>
-
-  <div id="loginForm">
-    <div class="form-group">
-      <label>Username</label>
-      <input type="text" id="loginUser" placeholder="Enter username" autocomplete="username">
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password">
-    </div>
-    <button class="btn" id="loginBtn" onclick="doLogin()">ENTER THE PYRAMID</button>
-    <div class="error" id="loginError"></div>
+  <div class="form-group">
+    <label>Team Name</label>
+    <input type="text" id="teamInput" placeholder="Enter team name (same = same room)" maxlength="30" autocomplete="off">
   </div>
+  <button class="btn" id="playBtn" onclick="joinGame()">JOIN GAME</button>
+  <div class="error" id="error"></div>
 
-  <div id="registerForm" style="display:none">
-    <div class="form-group">
-      <label>Username</label>
-      <input type="text" id="regUser" placeholder="Choose a username" autocomplete="off">
+  <div class="teams-section">
+    <h3>Active Teams</h3>
+    <div class="team-list" id="teamList">
+      <div class="no-teams">Loading...</div>
     </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="regPass" placeholder="Choose a password" autocomplete="new-password">
-    </div>
-    <div class="form-group">
-      <label>Confirm Password</label>
-      <input type="password" id="regConfirm" placeholder="Confirm password" autocomplete="new-password">
-    </div>
-    <button class="btn" id="regBtn" onclick="doRegister()">CREATE ACCOUNT</button>
-    <div class="error" id="regError"></div>
-    <div class="success" id="regSuccess"></div>
-  </div>
-
-  <div class="loading" id="loading">
-    <span></span><span></span><span></span>
-    <div style="margin-top:8px;font-size:11px;color:#888;">Connecting to pyramid...</div>
   </div>
 
   <div class="info">
-    ⚑ 500 players supported<br>
-    ◈ Each player controls their own explorer
+    ◈ Same team name = same room<br>
+    ◈ Max 4 players per team
   </div>
 </div>
 
 <script>
-let currentTab = 'login';
+const saved = localStorage.getItem('pyramid_name');
+if (saved) document.getElementById('nameInput').value = saved;
 
-function switchTab(tab) {
-  currentTab = tab;
-  document.getElementById('tabLogin').className = 'tab' + (tab === 'login' ? ' active' : '');
-  document.getElementById('tabRegister').className = 'tab' + (tab === 'register' ? ' active' : '');
-  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
-  document.getElementById('loginError').textContent = '';
-  document.getElementById('regError').textContent = '';
-  document.getElementById('regSuccess').textContent = '';
-}
-
-function showLoading(show) {
-  document.getElementById('loading').style.display = show ? 'block' : 'none';
-}
-
-async function doLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-  const btn = document.getElementById('loginBtn');
+function joinGame() {
+  const name = document.getElementById('nameInput').value.trim();
+  const team = document.getElementById('teamInput').value.trim();
+  const errEl = document.getElementById('error');
   errEl.textContent = '';
-  if (!user || !pass) { errEl.textContent = 'Please enter username and password.'; return; }
-  btn.disabled = true; showLoading(true);
+
+  if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+  if (!team) { errEl.textContent = 'Please enter a team name.'; return; }
+  if (name.length < 1) { errEl.textContent = 'Name must be at least 1 character.'; return; }
+  if (team.length < 1) { errEl.textContent = 'Team name must be at least 1 character.'; return; }
+
+  localStorage.setItem('pyramid_name', name);
+  localStorage.setItem('pyramid_team', team);
+  window.location.href = '/game.html';
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinGame(); });
+document.getElementById('teamInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinGame(); });
+
+async function loadTeams() {
   try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user, password: pass })
-    });
+    const res = await fetch('/api/teams');
     const data = await res.json();
-    if (res.ok) {
-      localStorage.setItem('pyramid_token', data.token);
-      localStorage.setItem('pyramid_username', data.username);
-      window.location.href = '/game.html';
-    } else {
-      errEl.textContent = data.error || 'Login failed.';
-      btn.disabled = false; showLoading(false);
+    const list = document.getElementById('teamList');
+    if (data.teams.length === 0) {
+      list.innerHTML = '<div class="no-teams">No active teams yet</div>';
+      return;
     }
+    list.innerHTML = data.teams.map(t =>
+      `<div class="team-item" onclick="pickTeam('${t.name.replace(/'/g, "\\'")}')">` +
+      `<span>${t.name}</span>` +
+      `<span>${t.gameOver ? '<span class="gameover">Game Over</span>' : `<span class="players">${t.players}/${t.maxPlayers}</span>`}</span>` +
+      `</div>`
+    ).join('');
   } catch(e) {
-    errEl.textContent = 'Cannot connect to server. Is it running?';
-    btn.disabled = false; showLoading(false);
+    document.getElementById('teamList').innerHTML = '<div class="no-teams">Cannot load teams</div>';
   }
 }
 
-async function doRegister() {
-  const user = document.getElementById('regUser').value.trim();
-  const pass = document.getElementById('regPass').value;
-  const confirm = document.getElementById('regConfirm').value;
-  const errEl = document.getElementById('regError');
-  const sucEl = document.getElementById('regSuccess');
-  const btn = document.getElementById('regBtn');
-  errEl.textContent = ''; sucEl.textContent = '';
-  if (!user || !pass) { errEl.textContent = 'Please fill all fields.'; return; }
-  if (pass !== confirm) { errEl.textContent = 'Passwords do not match.'; return; }
-  if (user.length < 2) { errEl.textContent = 'Username must be at least 2 characters.'; return; }
-  if (pass.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; return; }
-  btn.disabled = true; showLoading(true);
-  try {
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user, password: pass })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      sucEl.textContent = 'Account created! You can now login.';
-      btn.disabled = false; showLoading(false);
-      setTimeout(() => switchTab('login'), 1500);
-    } else {
-      errEl.textContent = data.error || 'Registration failed.';
-      btn.disabled = false; showLoading(false);
-    }
-  } catch(e) {
-    errEl.textContent = 'Cannot connect to server. Is it running?';
-    btn.disabled = false; showLoading(false);
-  }
+function pickTeam(name) {
+  document.getElementById('teamInput').value = name;
 }
 
-document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-document.getElementById('regUser').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
-document.getElementById('regPass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
-document.getElementById('regConfirm').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+loadTeams();
+setInterval(loadTeams, 5000);
 </script>
 </body>
 </html>
